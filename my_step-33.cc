@@ -352,6 +352,7 @@ namespace Step33
     	const typename InputVector::value_type permeability = compute_perm(W);
     	const typename InputVector::value_type chem_coeff = compute_chem_coeff(W);
     	const typename InputVector::value_type rho_f = compute_rho_f(W);
+    	const typename InputVector::value_type bulk_density = compute_bulk_density(W);
 
       for (unsigned int c=0; c < n_components; ++c)
         switch (c) // whatever the dimension, the z direction and porosity component are filled and everything else is 0.0
@@ -359,6 +360,9 @@ namespace Step33
           case vf_first_component+dim-1:
         	forcing[c] = 1./(lambda*permeability) * (W[vf_first_component+dim-1] - W[vr_first_component+dim-1]) - rho_f;
         	break;
+          case vr_first_component+dim-1:
+            forcing[c] = bulk_density;
+            break;
           case poro_component:
             forcing[c] = chem_coeff * W[VES_component];
             break;
@@ -366,7 +370,7 @@ namespace Step33
             forcing[c] = 0.0; // ZERO FOR EVERYTHING ELSE
         }
 
-      switch (dim) // add in teh extra components that come up in darcyś for 2d and 3d.
+      switch (dim) // add in teh extra components that come up in darcyś for 2d and 3d. Note we dont need bulk density here anymore
       	  {
       	  case 2:
       		  forcing[vf_first_component] = 1./(lambda*permeability) * (W[vf_first_component] - W[vr_first_component]);
