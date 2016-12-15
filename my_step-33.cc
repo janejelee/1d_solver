@@ -84,37 +84,25 @@ namespace Step33
 
   // @sect3{Euler equation specifics}
 
-  // Here we define the flux function for this particular system of
-  // conservation laws, as well as pretty much everything else that's specific
-  // to the Euler equations for gas dynamics, for reasons discussed in the
-  // introduction. We group all this into a structure that defines everything
-  // that has to do with the flux. All members of this structure are static,
-  // i.e. the structure has no actual state specified by instance member
-  // variables. The better way to do this, rather than a structure with all
-  // static members would be to use a namespace -- but namespaces can't be
-  // templatized and we want some of the member variables of the structure to
-  // depend on the space dimension, which we in our usual way introduce using
+  // Here we define the flux function for this particular system of conservation laws, as well as pretty much everything else that's specific
+  // to the Euler equations for gas dynamics, for reasons discussed in the introduction. We group all this into a structure that defines everything
+  // that has to do with the flux. All members of this structure are static, i.e. the structure has no actual state specified by instance member
+  // variables. The better way to do this, rather than a structure with all static members would be to use a namespace -- but namespaces can't be
+  // templatized and we want some of the member variables of the structure to depend on the space dimension, which we in our usual way introduce using
   // a template parameter.
   template <int dim>
   struct EulerEquations
   {
-    // @sect4{Component description}
-
-    // First a few variables that describe the various components of our solution vector in a generic way. Note that all these %numbers depend on the space dimension;
-    // defining them in a generic way (rather than by implicit convention) makes our code more flexible and makes it easier to later extend it,
-    // for example by adding more components to the equations.
+	  // PAGE 8
+	  // COMPONENT DESCRIPTION AND NAMES (VECTOR/SCALAR)
     static const unsigned int n_components             = 2*dim + 4;
     static const unsigned int VES_component      	   = 0;
     static const unsigned int pf_component             = 1;
-    static const unsigned int uf_first_component       = 2;
-    static const unsigned int ur_first_component       = 2+dim;
+    static const unsigned int vf_first_component       = 2;
+    static const unsigned int vr_first_component       = 2+dim;
     static const unsigned int poro_component           = 2+2*dim;
     static const unsigned int temp_component           = 2+2*dim+1;
 
-    // When generating graphical output way down in this program, we need to specify the names of the solution variables as well as how the various
-    // components group into vector and scalar fields. We could describe this there, but in order to keep things that have to do with the Euler
-    // equation localized here and the rest of the program as generic as possible, we provide this sort of information in the following two
-    // functions:
     static
     std::vector<std::string>
     component_names ()
@@ -130,7 +118,6 @@ namespace Step33
 
       return names;
     }
-
 
     static
     std::vector<DataComponentInterpretation::DataComponentInterpretation>
@@ -151,13 +138,7 @@ namespace Step33
     }
 
 
-    // @sect4{Transformations between variables}
-
-    // Next, we define the gas constant. We will set it to 1.4 in its
-    // definition immediately following the declaration of this class (unlike
-    // integer variables, like the ones above, static const floating point
-    // member variables cannot be initialized within the class declaration in
-    // C++).
+    // PARAMETER DECLATAION AND DEFINE FUNCTIONS
     static const double lambda;
     static const double gamma;
     static const double shear_modulus;
@@ -171,7 +152,7 @@ namespace Step33
     static const double C_tilde; // C*Re*Ri*phi_0¹.1
     static const double phi_0;
 
-
+    //RHO_F
     template <typename InputVector>
     static
     typename InputVector::value_type
@@ -180,7 +161,7 @@ namespace Step33
       return -9.9e-6*W[temp_component]*W[temp_component]*W[temp_component] + 0.002712*W[temp_component]*W[temp_component] -
     		  	  	  0.8176*W[temp_component] + 1032.0;
     }
-
+    //C_R
     template <typename InputVector>
        static
        typename InputVector::value_type
@@ -188,7 +169,7 @@ namespace Step33
        {
          return -0.001361*W[temp_component]*W[temp_component] + 1.478*W[temp_component] +737.0;
        }
-
+    //KAPPA
     template <typename InputVector>
          static
          typename InputVector::value_type
@@ -204,7 +185,7 @@ namespace Step33
 
            return kappa;
          }
-
+    //MU_R
     template <typename InputVector>
         static
         typename InputVector::value_type
@@ -212,7 +193,7 @@ namespace Step33
         {
           return mu_0*(exp((E/R) * (1.0/ W[temp_component] - 1.0/T_0)));
         }
-
+    //K, PERMEABILITY
     template <typename InputVector>
     	static
 		typename InputVector::value_type
@@ -220,7 +201,7 @@ namespace Step33
     	{
     		return pow(( W[poro_component]/phi_0 ),8.0);
     	}
-
+    //CHEMICAL COMPACTION COEFFICIENT, EVERYTHING UP TO (PR-PF)
     template <typename InputVector>
     	static
 		typename InputVector::value_type
@@ -229,7 +210,7 @@ namespace Step33
     		return ( C_tilde * pow(W[poro_component],0.1) * pow((1.0-W[poro_component]),2.0) * (1.0/compute_mu_r(W)) );
 
     	}
-
+    //BULK DENSITY USED IN EQUATIONS 4 (FORCING)
     template <typename InputVector>
         	static
     		typename InputVector::value_type
@@ -238,29 +219,30 @@ namespace Step33
         		return ( (1.0-W[poro_component])*rho_r + W[poro_component]*compute_rho_f(W) );
 
         	}
-
+    //BULK DENSITY WITH RELATIVE HEAT CAPACITY for rock and fluid USED IN TIME FOR TEMP EQUATION: BE CAREFUL - THIS IS RETURNING A NUMBER
     template <typename InputVector>
             	static
         		typename InputVector::value_type
-        		compute_bulk_c (const InputVector &W)
+        		compute_bulk_c_r (const InputVector &W)
             	{
-            		return ( (1.0-W[poro_component])*rho_r*compute_c_r(W) + W[poro_component]*compute_rho_f(W)*c_f );
+            		return ( (1.0-W[poro_component])*rho_r*compute_c_r(W) ); // (1-phi)*rho_r*c_r
 
             	}
+    template <typename InputVector>
+              	static
+          		typename InputVector::value_type
+          		compute_bulk_c_f (const InputVector &W)
+              	{
+              		return ( W[poro_component]*compute_rho_f(W)*c_f ); // phi*rho_f*c_f
+
+              	}
 
 
 
-    // @sect4{EulerEquations::compute_flux_matrix}
 
-    // We define the flux function $F(W)$ as one large matrix.  Each row of
-    // this matrix represents a scalar conservation law for the component in
-    // that row.  The exact form of this matrix is given in the
-    // introduction. Note that we know the size of the matrix: it has as many
-    // rows as the system has components, and <code>dim</code> columns; rather
-    // than using a FullMatrix object for such a matrix (which has a variable
-    // number of rows and columns and must therefore allocate memory on the
-    // heap each time such a matrix is created), we use a rectangular array of
-    // numbers right away.
+    // PAGE 9: COMPUTE FLUX MATRIX
+
+    // size of matrix is declared at the beginning since we know it wrt dimension.
     //
     // We templatize the numerical type of the flux function so that we may
     // use the automatic differentiation type here.  Similarly, we will call
@@ -270,37 +252,58 @@ namespace Step33
     static
     void compute_flux_matrix (const InputVector &W,
                               std_cxx11::array <std_cxx11::array
-                              <typename InputVector::value_type, dim>,
+                              <typename InputVector::value_type, dim>, // a row of (dim columns) and n_components rows of them stacked below. called 'flux'
                               EulerEquations<dim>::n_components > &flux)
     {
       // First compute the pressure that appears in the flux matrix, and then
       // compute the first <code>dim</code> columns of the matrix that
       // correspond to the momentum terms:
-      const typename InputVector::value_type pressure = compute_pressure(W);
+      const typename InputVector::value_type bulk_c_r = compute_bulk_c_r(W);
+      const typename InputVector::value_type bulk_c_f = compute_bulk_c_f(W);
+      const typename InputVector::value_type rho_f = compute_rho_f(W);
+
+      // equations for first two continuity equations
+
+      for (unsigned int d=0; d<dim; ++d)
+        flux[VES_component][d] = (1.0-W[poro_component])*rho_r*W[vr_first_component+d];
+
+      for (unsigned int d=0; d<dim; ++d)
+        flux[pf_component][d] = W[poro_component]*rho_f*W[vf_first_component+d];
+
+      // Momentum equations portion
 
       for (unsigned int d=0; d<dim; ++d)
         {
-          for (unsigned int e=0; e<dim; ++e)
-            flux[first_momentum_component+d][e]
-              = W[first_momentum_component+d] *
-                W[first_momentum_component+e] /
-                W[density_component];
+          for (unsigned int e=vf_first_component; e<dim; ++e)
+            flux[vf_first_component+d][e] = 0.0; // initialise all values to 0.
 
-          flux[first_momentum_component+d][d] += pressure;
+          flux[vf_first_component+d][d] += W[pf_component]; // diagonals equal to p_f
+
         }
-
-      // Then the terms for the density (i.e. mass conservation), and, lastly,
-      // conservation of energy:
       for (unsigned int d=0; d<dim; ++d)
-        flux[density_component][d] = W[first_momentum_component+d];
+             {
+               for (unsigned int e=vr_first_component; e<dim; ++e)
+                 flux[vr_first_component+d][e] = 0.0; // initialise all values to 0.
+
+               flux[vr_first_component+d][d] += (1.0-W[poro_component])*W[VES_component] + W[pf_component];
+
+             }
+
+      // components for porosity and temperature equations
 
       for (unsigned int d=0; d<dim; ++d)
-        flux[energy_component][d] = W[first_momentum_component+d] /
-                                    W[density_component] *
-                                    (W[energy_component] + pressure);
+             flux[poro_component][d] = 0.0; // no straight forward div terms in porosity equation
+
+
+      for (unsigned int d=0; d<dim; ++d)
+             flux[temp_component][d] = ( bulk_c_f*W[vf_first_component+d] + bulk_c_r*W[vr_first_component+d] ) * W[temp_component];
+
+
     }
 
 
+
+    // COME BACK TO NORMAL FLOW EQUATIONS
     // @sect4{EulerEquations::compute_normal_flux}
 
     // On the boundaries of the domain and across hanging nodes we use a
@@ -334,37 +337,47 @@ namespace Step33
         }
     }
 
-    // @sect4{EulerEquations::compute_forcing_vector}
 
-    // In the same way as describing the flux function $\mathbf F(\mathbf w)$,
-    // we also need to have a way to describe the right hand side forcing
-    // term. As mentioned in the introduction, we consider only gravity here,
-    // which leads to the specific form $\mathbf G(\mathbf w) = \left(
-    // g_1\rho, g_2\rho, g_3\rho, 0, \rho \mathbf g \cdot \mathbf v
-    // \right)^T$, shown here for the 3d case. More specifically, we will
-    // consider only $\mathbf g=(0,0,-1)^T$ in 3d, or $\mathbf g=(0,-1)^T$ in
-    // 2d. This naturally leads to the following function:
+
+
+    // page 10: COMPUTE FORCING VECTOR
+
     template <typename InputVector>
     static
-    void compute_forcing_vector (const InputVector &W,
+    void compute_forcing_vector (const InputVector &W, // NOW THE MATRIX IS CALLED FORCING
                                  std_cxx11::array
-                                 <typename InputVector::value_type, n_components>
+                                 <typename InputVector::value_type, n_components> // JUST N COMPONENTS
                                  &forcing)
     {
-      const double gravity = -1.0;
+    	const typename InputVector::value_type permeability = compute_perm(W);
+    	const typename InputVector::value_type chem_coeff = compute_chem_coeff(W);
+    	const typename InputVector::value_type rho_f = compute_rho_f(W);
 
-      for (unsigned int c=0; c<n_components; ++c)
-        switch (c)
+      for (unsigned int c=0; c < n_components; ++c)
+        switch (c) // whatever the dimension, the z direction and porosity component are filled and everything else is 0.0
           {
-          case first_momentum_component+dim-1:
-            forcing[c] = gravity * W[density_component];
-            break;
-          case energy_component:
-            forcing[c] = gravity * W[first_momentum_component+dim-1];
+          case vf_first_component+dim-1:
+        	forcing[c] = 1./(lambda*permeability) * (W[vf_first_component+dim-1] - W[vr_first_component+dim-1]) - rho_f;
+        	break;
+          case poro_component:
+            forcing[c] = chem_coeff * W[VES_component];
             break;
           default:
-            forcing[c] = 0;
-          }
+            forcing[c] = 0.0; // ZERO FOR EVERYTHING ELSE
+        }
+
+      switch (dim) // add in teh extra components that come up in darcyś for 2d and 3d.
+      	  {
+      	  case 2:
+      		  forcing[vf_first_component] = 1./(lambda*permeability) * (W[vf_first_component] - W[vr_first_component]);
+      		break;
+      	  case 3:
+      		  forcing[vf_first_component] = 1./(lambda*permeability) * (W[vf_first_component] - W[vr_first_component]);
+      		  forcing[vf_first_component+1] = 1./(lambda*permeability) * (W[vf_first_component+1] - W[vr_first_component+1]);
+      		  break;
+      	  }
+
+
     }
 
 
