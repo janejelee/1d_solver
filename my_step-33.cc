@@ -74,6 +74,7 @@ DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 #include <fstream>
 #include <vector>
 #include <memory>
+#include <cmath>
 
 
 namespace Step33
@@ -103,12 +104,12 @@ namespace Step33
     // defining them in a generic way (rather than by implicit convention) makes our code more flexible and makes it easier to later extend it,
     // for example by adding more components to the equations.
     static const unsigned int n_components             = 2*dim + 4;
-    static const unsigned int pr_component             = 0;
+    static const unsigned int VES_component      	   = 0;
     static const unsigned int pf_component             = 1;
     static const unsigned int uf_first_component       = 2;
     static const unsigned int ur_first_component       = 2+dim;
-    static const unsigned int poro_component           = 3+dim;
-    static const unsigned int temp_component           = 4+dim;
+    static const unsigned int poro_component           = 2+2*dim;
+    static const unsigned int temp_component           = 2+2*dim+1;
 
     // When generating graphical output way down in this program, we need to specify the names of the solution variables as well as how the various
     // components group into vector and scalar fields. We could describe this there, but in order to keep things that have to do with the Euler
@@ -118,7 +119,7 @@ namespace Step33
     std::vector<std::string>
     component_names ()
     {
-    	std::vector<std::string> names (1, "rock_pressure");
+    	std::vector<std::string> names (1, "VES-rock-fluid_pressure");
     	names.push_back ("fluid_pressure");
     	std::vector<std::string> vf (dim, "fluid_velocity");
     	std::vector<std::string> vr (dim, "rock_velocity");
@@ -137,7 +138,7 @@ namespace Step33
     {
 
 	      std::vector<DataComponentInterpretation::DataComponentInterpretation>
-	      data_component_interpretation (1, DataComponentInterpretation::component_is_scalar); //p_r - initial data interpretation
+	      data_component_interpretation (1, DataComponentInterpretation::component_is_scalar); //p_r-p_f - initial data interpretation
 	      data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar); // add another scalar for p_f
 	      std::vector<DataComponentInterpretation::DataComponentInterpretation> vrDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
 	      std::vector<DataComponentInterpretation::DataComponentInterpretation> vfDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
@@ -163,43 +164,50 @@ namespace Step33
     static const double nusselt;
     static const double mu_0;
     static const double T_0;
-    static const double rho_f;
     static const double rho_r;
+    static const double activ_E;
+    static const double R;
+    static const double c_f;
+    static const double C_tilde; // C*Re*Ri*phi_0¹.1
+    static const double phi_0;
 
 
     template <typename InputVector>
     static
     typename InputVector::value_type
-    compute_rhof (const InputVector &W)
+    compute_rho_f (const InputVector &W)
     {
-      return ((gas_gamma-1.0) *
-              (W[energy_component] - compute_kinetic_energy(W)));
+      return -9.9e-6*W[temp_component]*W[temp_component]*W[temp_component] + 0.002712*W[temp_component]*W[temp_component] -
+    		  	  	  0.8176*W[temp_component] + 1032.0;
     }
 
     template <typename InputVector>
-    static
-    typename InputVector::value_type
-    compute_bulk_density (const InputVector &W)
-    {
-      typename InputVector::value_type kinetic_energy = 0;
-
-      for (unsigned int d=0; d<dim; ++d)
-        kinetic_energy += W[first_momentum_component+d] *
-                          W[first_momentum_component+d];
-      kinetic_energy *= 1./(2 * W[density_component]);
-
-      return kinetic_energy;
-    }
-
+       static
+       typename InputVector::value_type
+       compute_c_r (const InputVector &W)
+       {
+         return -0.001361*W[temp_component]*W[temp_component] + 1.478*W[temp_component] +737.0;
+       }
 
     template <typename InputVector>
-    static
-    typename InputVector::value_type
-    compute_pressure (const InputVector &W)
-    {
-      return ((gas_gamma-1.0) *
-              (W[energy_component] - compute_kinetic_energy(W)));
-    }
+         static
+         typename InputVector::value_type
+         compute_kappa (const InputVector &W)
+         {
+           typename InputVector::value_type kappar = 0.0;
+           typename InputVector::value_type kappaf = 0.0;
+           typename InputVector::value_type kappa = 0.0;
+
+           kappaf = -6.0e-6*W[temp_component]*W[temp_component] + 0.00162*W[temp_component] + 0.5643;
+           kappar = 5.0e-6*W[temp_component]*W[temp_component] - 0.00585*W[temp_component] + 3.515;
+           kappa = pow(kappaf,W[poro_component]) * pow(kappar,(1.0-W[poro_component]));
+
+           return kappa;
+         }
+
+
+
+
 
 
     // @sect4{EulerEquations::compute_flux_matrix}
