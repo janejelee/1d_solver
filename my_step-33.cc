@@ -165,7 +165,7 @@ namespace Step33
     static const double mu_0;
     static const double T_0;
     static const double rho_r;
-    static const double activ_E;
+    static const double E;
     static const double R;
     static const double c_f;
     static const double C_tilde; // C*Re*Ri*phi_0¹.1
@@ -205,8 +205,48 @@ namespace Step33
            return kappa;
          }
 
+    template <typename InputVector>
+        static
+        typename InputVector::value_type
+        compute_mu_r (const InputVector &W)
+        {
+          return mu_0*(exp((E/R) * (1.0/ W[temp_component] - 1.0/T_0)));
+        }
 
+    template <typename InputVector>
+    	static
+		typename InputVector::value_type
+		compute_perm (const InputVector &W)
+    	{
+    		return pow(( W[poro_component]/phi_0 ),8.0);
+    	}
 
+    template <typename InputVector>
+    	static
+		typename InputVector::value_type
+		compute_chem_coeff (const InputVector &W)
+    	{
+    		return ( C_tilde * pow(W[poro_component],0.1) * pow((1.0-W[poro_component]),2.0) * (1.0/compute_mu_r(W)) );
+
+    	}
+
+    template <typename InputVector>
+        	static
+    		typename InputVector::value_type
+    		compute_bulk_density (const InputVector &W)
+        	{
+        		return ( (1.0-W[poro_component])*rho_r + W[poro_component]*compute_rho_f(W) );
+
+        	}
+
+    template <typename InputVector>
+            	static
+        		typename InputVector::value_type
+        		compute_bulk_c (const InputVector &W)
+            	{
+            		return ( (1.0-W[poro_component])*rho_r*compute_c_r(W) + W[poro_component]*compute_rho_f(W)*c_f );
+
+            	}
 
 
 
