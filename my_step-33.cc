@@ -210,6 +210,14 @@ namespace Step33
     		return ( C_tilde * pow(W[poro_component],0.1) * pow((1.0-W[poro_component]),2.0) * (1.0/compute_mu_r(W)) );
 
     	}
+    // mech compac coeff where = gamma*exp(-gamma*ves))
+    template <typename InputVector>
+    	static
+		typename InputVector::value_type
+		compute_mech_coeff (const InputVector &W)
+    	{
+    		return (gamma * exp(-gamma*W[ves_component]));
+    	}
     //BULK DENSITY USED IN EQUATIONS 4 (FORCING)
     template <typename InputVector>
         	static
@@ -384,12 +392,35 @@ namespace Step33
 
     }
 
+    template <typename InputVector>
+    static
+	void compute_laplacian_vector (const InputVector &W,
+									std_cxx11::array
+			                        <typename InputVector::value_type, n_components>
+    								&laplacian)
+    {
+    		const typename InputVector::value_type kappa_total = compute_kappa(W);
+    		const typename InputVector::value_type mech_coeff = compute_mech_coeff(W);
 
-    // @sect4{Dealing with boundary conditions}
+    		for (unsigned int c=0; c< n_components; ++c)
+    			switch(c)
+    			{
+    			case poro_component:
+    				laplacian[c] = mech_coeff;
+    				break;
+    			case temp_component:
+    				laplacian[c] = 1/phi_0;
+    				break;
+    			default:
+    				laplacian[c] = 0.0;
+    			}
+    }
 
-    // Another thing we have to deal with is boundary conditions. To this end,
-    // let us first define the kinds of boundary conditions we currently know
-    // how to deal with:
+
+
+
+    // PAGE 11 BOUNDARY CONDITIONS:
+
     enum BoundaryKind
     {
       inflow_boundary,
@@ -399,78 +430,38 @@ namespace Step33
     };
 
 
-    // The next part is to actually decide what to do at each kind of
-    // boundary. To this end, remember from the introduction that boundary
-    // conditions are specified by choosing a value $\mathbf w^-$ on the
-    // outside of a boundary given an inhomogeneity $\mathbf j$ and possibly
-    // the solution's value $\mathbf w^+$ on the inside. Both are then passed
-    // to the numerical flux $\mathbf H(\mathbf{w}^+, \mathbf{w}^-,
-    // \mathbf{n})$ to define boundary contributions to the bilinear form.
-    //
-    // Boundary conditions can in some cases be specified for each component
-    // of the solution vector independently. For example, if component $c$ is
-    // marked for inflow, then $w^-_c = j_c$. If it is an outflow, then $w^-_c
-    // = w^+_c$. These two simple cases are handled first in the function
-    // below.
-    //
-    // There is a little snag that makes this function unpleasant from a C++
-    // language viewpoint: The output vector <code>Wminus</code> will of
-    // course be modified, so it shouldn't be a <code>const</code>
-    // argument. Yet it is in the implementation below, and needs to be in
-    // order to allow the code to compile. The reason is that we call this
-    // function at a place where <code>Wminus</code> is of type
-    // <code>Table@<2,Sacado::Fad::DFad@<double@> @></code>, this being 2d
-    // table with indices representing the quadrature point and the vector
-    // component, respectively. We call this function with
-    // <code>Wminus[q]</code> as last argument; subscripting a 2d table yields
-    // a temporary accessor object representing a 1d vector, just what we want
-    // here. The problem is that a temporary accessor object can't be bound to
-    // a non-const reference argument of a function, as we would like here,
-    // according to the C++ 1998 and 2003 standards (something that will be
-    // fixed with the next standard in the form of rvalue references).  We get
-    // away with making the output argument here a constant because it is the
-    // <i>accessor</i> object that's constant, not the table it points to:
-    // that one can still be written to. The hack is unpleasant nevertheless
-    // because it restricts the kind of data types that may be used as
-    // template argument to this function: a regular vector isn't going to do
-    // because that one can not be written to when marked
-    // <code>const</code>. With no good solution around at the moment, we'll
-    // go with the pragmatic, even if not pretty, solution shown here:
     template <typename DataVector>
     static
     void
-    compute_Wminus (const BoundaryKind  (&boundary_kind)[n_components],
+    compute_Wminus (const BoundaryKind  (&boundary_kind)[n_components], // need to declare the boundary kind for ALL variables
                     const Tensor<1,dim>  &normal_vector,
-                    const DataVector     &Wplus,
+                    const DataVector     &Wplus,  // nb data vector
                     const Vector<double> &boundary_values,
-                    const DataVector     &Wminus)
+                    const DataVector     &Wminus)  // nb data vector
     {
       for (unsigned int c = 0; c < n_components; c++)
         switch (boundary_kind[c])
           {
+        	// INFLOW
           case inflow_boundary:
           {
             Wminus[c] = boundary_values(c);
             break;
           }
-
+          	 // OUTFLOW
           case outflow_boundary:
           {
             Wminus[c] = Wplus[c];
             break;
           }
-
-          // Prescribed pressure boundary conditions are a bit more
-          // complicated by the fact that even though the pressure is
-          // prescribed, we really are setting the energy component here,
-          // which will depend on velocity and pressure. So even though this
-          // seems like a Dirichlet type boundary condition, we get
-          // sensitivities of energy to velocity and density (unless these are
-          // also prescribed):
-          case pressure_boundary:
+          	  // PRESSURE
+          case pressure_boundary: // so this only acts knowing it'll only be for energy component
           {
             const typename DataVector::value_type
-            density = (boundary_kind[density_component] ==
+			 density = (boundary_kind[density_component] == inflow_boundary ? boundary_values(density_component):Wplus[density_component]);
+
+            // if boundary_kind(density) == inflow_boundary, then return boundary_values(density_component), if not return Wplus[]
+			density = (boundary_kind[density_component] ==
                        inflow_boundary
                        ?
                        boundary_values(density_component)
@@ -490,8 +481,8 @@ namespace Step33
 
             break;
           }
-
-          case no_penetration_boundary:
+          	  // REFLECTIVE
+          case no_penetration_boundary: // this is ok for no flux boundary but not for no flux heat
           {
             // We prescribe the velocity (we are dealing with a particular
             // component here so that the average of the velocities is
@@ -514,252 +505,8 @@ namespace Step33
 
 
     // @sect4{EulerEquations::compute_refinement_indicators}
-
-    // In this class, we also want to specify how to refine the mesh. The
-    // class <code>ConservationLaw</code> that will use all the information we
-    // provide here in the <code>EulerEquation</code> class is pretty agnostic
-    // about the particular conservation law it solves: as doesn't even really
-    // care how many components a solution vector has. Consequently, it can't
-    // know what a reasonable refinement indicator would be. On the other
-    // hand, here we do, or at least we can come up with a reasonable choice:
-    // we simply look at the gradient of the density, and compute
-    // $\eta_K=\log\left(1+|\nabla\rho(x_K)|\right)$, where $x_K$ is the
-    // center of cell $K$.
-    //
-    // There are certainly a number of equally reasonable refinement
-    // indicators, but this one does, and it is easy to compute:
-    static
-    void
-    compute_refinement_indicators (const DoFHandler<dim> &dof_handler,
-                                   const Mapping<dim>    &mapping,
-                                   const Vector<double>  &solution,
-                                   Vector<double>        &refinement_indicators)
-    {
-      const unsigned int dofs_per_cell = dof_handler.get_fe().dofs_per_cell;
-      std::vector<unsigned int> dofs (dofs_per_cell);
-
-      const QMidpoint<dim>  quadrature_formula;
-      const UpdateFlags update_flags = update_gradients;
-      FEValues<dim> fe_v (mapping, dof_handler.get_fe(),
-                          quadrature_formula, update_flags);
-
-      std::vector<std::vector<Tensor<1,dim> > >
-      dU (1, std::vector<Tensor<1,dim> >(n_components));
-
-      typename DoFHandler<dim>::active_cell_iterator
-      cell = dof_handler.begin_active(),
-      endc = dof_handler.end();
-      for (unsigned int cell_no=0; cell!=endc; ++cell, ++cell_no)
-        {
-          fe_v.reinit(cell);
-          fe_v.get_function_gradients (solution, dU);
-
-          refinement_indicators(cell_no)
-            = std::log(1+
-                       std::sqrt(dU[0][density_component] *
-                                 dU[0][density_component]));
-        }
-    }
-
-
-
     // @sect4{EulerEquations::Postprocessor}
-
-    // Finally, we declare a class that implements a postprocessing of data
-    // components. The problem this class solves is that the variables in the
-    // formulation of the Euler equations we use are in conservative rather
-    // than physical form: they are momentum densities $\mathbf m=\rho\mathbf
-    // v$, density $\rho$, and energy density $E$. What we would like to also
-    // put into our output file are velocities $\mathbf v=\frac{\mathbf
-    // m}{\rho}$ and pressure $p=(\gamma-1)(E-\frac{1}{2} \rho |\mathbf
-    // v|^2)$.
-    //
-    // In addition, we would like to add the possibility to generate schlieren
-    // plots. Schlieren plots are a way to visualize shocks and other sharp
-    // interfaces. The word "schlieren" is a German word that may be
-    // translated as "striae" -- it may be simpler to explain it by an
-    // example, however: schlieren is what you see when you, for example, pour
-    // highly concentrated alcohol, or a transparent saline solution, into
-    // water; the two have the same color, but they have different refractive
-    // indices and so before they are fully mixed light goes through the
-    // mixture along bent rays that lead to brightness variations if you look
-    // at it. That's "schlieren". A similar effect happens in compressible
-    // flow because the refractive index depends on the pressure (and
-    // therefore the density) of the gas.
-    //
-    // The origin of the word refers to two-dimensional projections of a
-    // three-dimensional volume (we see a 2d picture of the 3d fluid). In
-    // computational fluid dynamics, we can get an idea of this effect by
-    // considering what causes it: density variations. Schlieren plots are
-    // therefore produced by plotting $s=|\nabla \rho|^2$; obviously, $s$ is
-    // large in shocks and at other highly dynamic places. If so desired by
-    // the user (by specifying this in the input file), we would like to
-    // generate these schlieren plots in addition to the other derived
-    // quantities listed above.
-    //
-    // The implementation of the algorithms to compute derived quantities from
-    // the ones that solve our problem, and to output them into data file,
-    // rests on the DataPostprocessor class. It has extensive documentation,
-    // and other uses of the class can also be found in step-29. We therefore
-    // refrain from extensive comments.
-    class Postprocessor : public DataPostprocessor<dim>
-    {
-    public:
-      Postprocessor (const bool do_schlieren_plot);
-
-      virtual
-      void
-      compute_derived_quantities_vector (const std::vector<Vector<double> >              &uh,
-                                         const std::vector<std::vector<Tensor<1,dim> > > &duh,
-                                         const std::vector<std::vector<Tensor<2,dim> > > &dduh,
-                                         const std::vector<Point<dim> >                  &normals,
-                                         const std::vector<Point<dim> >                  &evaluation_points,
-                                         std::vector<Vector<double> >                    &computed_quantities) const;
-
-      virtual std::vector<std::string> get_names () const;
-
-      virtual
-      std::vector<DataComponentInterpretation::DataComponentInterpretation>
-      get_data_component_interpretation () const;
-
-      virtual UpdateFlags get_needed_update_flags () const;
-
-    private:
-      const bool do_schlieren_plot;
-    };
-  };
-
-
-  template <int dim>
-  const double EulerEquations<dim>::gas_gamma = 1.4;
-
-
-
-  template <int dim>
-  EulerEquations<dim>::Postprocessor::
-  Postprocessor (const bool do_schlieren_plot)
-    :
-    do_schlieren_plot (do_schlieren_plot)
-  {}
-
-
-  // This is the only function worth commenting on. When generating graphical
-  // output, the DataOut and related classes will call this function on each
-  // cell, with values, gradients, Hessians, and normal vectors (in case we're
-  // working on faces) at each quadrature point. Note that the data at each
-  // quadrature point is itself vector-valued, namely the conserved
-  // variables. What we're going to do here is to compute the quantities we're
-  // interested in at each quadrature point. Note that for this we can ignore
-  // the Hessians ("dduh") and normal vectors; to avoid compiler warnings
-  // about unused variables, we comment out their names.
-  template <int dim>
-  void
-  EulerEquations<dim>::Postprocessor::
-  compute_derived_quantities_vector (const std::vector<Vector<double> >              &uh,
-                                     const std::vector<std::vector<Tensor<1,dim> > > &duh,
-                                     const std::vector<std::vector<Tensor<2,dim> > > &/*dduh*/,
-                                     const std::vector<Point<dim> >                  &/*normals*/,
-                                     const std::vector<Point<dim> >                  &/*evaluation_points*/,
-                                     std::vector<Vector<double> >                    &computed_quantities) const
-  {
-    // At the beginning of the function, let us make sure that all variables
-    // have the correct sizes, so that we can access individual vector
-    // elements without having to wonder whether we might read or write
-    // invalid elements; we also check that the <code>duh</code> vector only
-    // contains data if we really need it (the system knows about this because
-    // we say so in the <code>get_needed_update_flags()</code> function
-    // below). For the inner vectors, we check that at least the first element
-    // of the outer vector has the correct inner size:
-    const unsigned int n_quadrature_points = uh.size();
-
-    if (do_schlieren_plot == true)
-      Assert (duh.size() == n_quadrature_points,
-              ExcInternalError());
-
-    Assert (computed_quantities.size() == n_quadrature_points,
-            ExcInternalError());
-
-    Assert (uh[0].size() == n_components,
-            ExcInternalError());
-
-    if (do_schlieren_plot == true)
-      Assert (computed_quantities[0].size() == dim+2, ExcInternalError())
-      else
-        Assert (computed_quantities[0].size() == dim+1, ExcInternalError());
-
-    // Then loop over all quadrature points and do our work there. The code
-    // should be pretty self-explanatory. The order of output variables is
-    // first <code>dim</code> velocities, then the pressure, and if so desired
-    // the schlieren plot. Note that we try to be generic about the order of
-    // variables in the input vector, using the
-    // <code>first_momentum_component</code> and
-    // <code>density_component</code> information:
-    for (unsigned int q=0; q<n_quadrature_points; ++q)
-      {
-        const double density = uh[q](density_component);
-
-        for (unsigned int d=0; d<dim; ++d)
-          computed_quantities[q](d)
-            = uh[q](first_momentum_component+d) / density;
-
-        computed_quantities[q](dim) = compute_pressure (uh[q]);
-
-        if (do_schlieren_plot == true)
-          computed_quantities[q](dim+1) = duh[q][density_component] *
-                                          duh[q][density_component];
-      }
-  }
-
-
-  template <int dim>
-  std::vector<std::string>
-  EulerEquations<dim>::Postprocessor::
-  get_names () const
-  {
-    std::vector<std::string> names;
-    for (unsigned int d=0; d<dim; ++d)
-      names.push_back ("velocity");
-    names.push_back ("pressure");
-
-    if (do_schlieren_plot == true)
-      names.push_back ("schlieren_plot");
-
-    return names;
-  }
-
-
-  template <int dim>
-  std::vector<DataComponentInterpretation::DataComponentInterpretation>
-  EulerEquations<dim>::Postprocessor::
-  get_data_component_interpretation () const
-  {
-    std::vector<DataComponentInterpretation::DataComponentInterpretation>
-    interpretation (dim,
-                    DataComponentInterpretation::component_is_part_of_vector);
-
-    interpretation.push_back (DataComponentInterpretation::
-                              component_is_scalar);
-
-    if (do_schlieren_plot == true)
-      interpretation.push_back (DataComponentInterpretation::
-                                component_is_scalar);
-
-    return interpretation;
-  }
-
-
-
-  template <int dim>
-  UpdateFlags
-  EulerEquations<dim>::Postprocessor::
-  get_needed_update_flags () const
-  {
-    if (do_schlieren_plot == true)
-      return update_values | update_gradients;
-    else
-      return update_values;
-  }
-
+    // these two sections have been deleted.
 
   // @sect3{Run time parameter handling}
 
