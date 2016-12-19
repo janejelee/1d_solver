@@ -124,15 +124,15 @@ namespace Step33
     component_interpretation ()
     {
 
-	      std::vector<DataComponentInterpretation::DataComponentInterpretation>
-	      data_component_interpretation (1, DataComponentInterpretation::component_is_scalar); //p_r-p_f - initial data interpretation
-	      data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar); // add another scalar for p_f
-	      std::vector<DataComponentInterpretation::DataComponentInterpretation> vrDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
-	      std::vector<DataComponentInterpretation::DataComponentInterpretation> vfDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
-	      data_component_interpretation.push_back (vrDCI); // two vector push backs for dim-dimensional amount of data interpretation
-	      data_component_interpretation.push_back (vfDCI);
-	      data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar);
-	      data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+    	std::vector<DataComponentInterpretation::DataComponentInterpretation>
+    	data_component_interpretation (1, DataComponentInterpretation::component_is_scalar); //p_r-p_f - initial data interpretation
+        data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar); // add another scalar for p_f
+    	std::vector<DataComponentInterpretation::DataComponentInterpretation> vfDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
+    	std::vector<DataComponentInterpretation::DataComponentInterpretation> vrDCI (dim, DataComponentInterpretation::component_is_part_of_vector);
+    	data_component_interpretation.insert(data_component_interpretation.end(), vfDCI.begin(), vfDCI.end()); // two vector push backs for dim-dimensional amount of data interpretation
+    	data_component_interpretation.insert(data_component_interpretation.end(), vrDCI.begin(), vrDCI.end());
+    	data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+    	data_component_interpretation.push_back (DataComponentInterpretation::component_is_scalar);
 
       return data_component_interpretation;
     }
@@ -216,7 +216,7 @@ namespace Step33
 		typename InputVector::value_type
 		compute_mech_coeff (const InputVector &W)
     	{
-    		return (gamma * exp(-gamma*W[ves_component]));
+    		return (gamma * exp(-gamma*W[VES_component]));
     	}
     //BULK DENSITY USED IN EQUATIONS 4 (FORCING)
     template <typename InputVector>
