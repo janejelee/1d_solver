@@ -15,25 +15,23 @@ set diffusion power = 2.0
 # Your .inp file should have these boundaries designated.
 
 
-subsection boundary_1
+subsection boundary_1 # sides
   set no penetration = true # reflective boundary condition
 end
 
-subsection boundary_2
-  # outflow boundary
-  # set w_2 = pressure
-  # set w_2 value = 1.5 - y
+subsection boundary_2 # top
+	set w_0 = pressure
+	set w_0 value = 0.0; # at top, pr-pf=0
+	set w_9 = 1.0
+	dry w_10 = 1.0
 end
 
 subsection boundary_3
-  set no penetration = true # reflective
-  # set w_3 = pressure
-  # set w_3 value = 1.0
+  set w_3 = pressure
+  set 
 end
 
-subsection boundary_4
-  set no penetration = true #reflective
-end
+
 
 # --------------------------------------------------
 # Initial Conditions
