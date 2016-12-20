@@ -91,7 +91,7 @@ namespace Step33
   // templatized and we want some of the member variables of the structure to depend on the space dimension, which we in our usual way introduce using
   // a template parameter.
   template <int dim>
-  struct EulerEquations
+  struct PTsolver
   {
 	  // PAGE 8
 	  // COMPONENT DESCRIPTION AND NAMES (VECTOR/SCALAR)
@@ -247,25 +247,14 @@ namespace Step33
 
 
 
-
-    // PAGE 9: COMPUTE FLUX MATRIX
-
-    // size of matrix is declared at the beginning since we know it wrt dimension.
-    //
-    // We templatize the numerical type of the flux function so that we may
-    // use the automatic differentiation type here.  Similarly, we will call
-    // the function with different input vector data types, so we templatize
-    // on it as well:
     template <typename InputVector>
     static
     void compute_flux_matrix (const InputVector &W,
                               std_cxx11::array <std_cxx11::array
                               <typename InputVector::value_type, dim>, // a row of (dim columns) and n_components rows of them stacked below. called 'flux'
-                              EulerEquations<dim>::n_components > &flux)
+                              PTsolver<dim>::n_components > &flux)
     {
-      // First compute the pressure that appears in the flux matrix, and then
-      // compute the first <code>dim</code> columns of the matrix that
-      // correspond to the momentum terms:
+
       const typename InputVector::value_type bulk_c_r = compute_bulk_c_r(W);
       const typename InputVector::value_type bulk_c_f = compute_bulk_c_f(W);
       const typename InputVector::value_type rho_f = compute_rho_f(W);
@@ -322,7 +311,7 @@ namespace Step33
     {
       std_cxx11::array
       <std_cxx11::array <typename InputVector::value_type, dim>,
-      EulerEquations<dim>::n_components > iflux, oflux;
+      PTsolver<dim>::n_components > iflux, oflux;
 
       compute_flux_matrix (Wplus, iflux);
       compute_flux_matrix (Wminus, oflux);
@@ -338,9 +327,6 @@ namespace Step33
     }
 
 
-
-
-    // page 10: COMPUTE FORCING VECTOR
 
     template <typename InputVector>
     static
@@ -409,10 +395,29 @@ namespace Step33
 
     template <typename InputVector>
     static
-	void compute_extraporo_vector (const InputVector &W,
+	void compute_extraporo1_vector (const InputVector &W,
 									std_cxx11::array
 			                        <typename InputVector::value_type, n_components>
-    								&extraporo)
+    								&extraporo1)
+    {
+
+    		for (unsigned int c=0; c< n_components; ++c)
+    			switch(c)
+    			{
+    			case poro_component:
+    				extraporo1[c] = W[vr_first_component+dim-1];
+    				break;
+    			default:
+    				extraporo1[c] = 0;
+    			}
+    }
+
+    template <typename InputVector>
+    static
+	void compute_extraporo2_vector (const InputVector &W,
+									std_cxx11::array
+			                        <typename InputVector::value_type, n_components>
+    								&extraporo2)
     {
     		const typename InputVector::value_type mech_coeff = compute_mech_coeff(W);
 
@@ -420,17 +425,49 @@ namespace Step33
     			switch(c)
     			{
     			case poro_component:
-    				extraporo[c] = mech_coeff;
+    				extraporo2[c] = mech_coeff*W[vr_first_component+dim-1];
     				break;
     			default:
-    				extraporo[c] = 0;
+    				extraporo2[c] = 0;
     			}
     }
 
+    template <typename InputVector>
+     static
+ 	void compute_time_vector (const InputVector &W,
+ 									std_cxx11::array
+ 			                        <typename InputVector::value_type, n_components>
+     								&time)
+     {
+    	const typename InputVector::value_type rho_f = compute_rho_f(W);
+    	const typename InputVector::value_type bulk_c_r = compute_bulk_c_r(W);
+    	const typename InputVector::value_type bulk_c_f = compute_bulk_c_f(W);
 
+     		for (unsigned int c=0; c< n_components; ++c)
+     			switch(c)
+     			{
+     			case VES_component:
+     				time[c] = rho_r*(1.0-W[poro_component]);
+     				break;
+     			case pf_component:
+     				time[c] = rho_f*W[poro_component];
+     				break;
+     			case poro_component:
+     				time[c] = W[poro_component] - exp(-gamma* (W[VES_component] ));
+     				break;
+     			case temp_component:
+     				time[c] = (bulk_c_r + bulk_c_f)*W[temp_component];
+     				break;
+     			default:
+     				time[c] = 0;
+     			}
+     }
 
 
     };
+
+
+
 
   template <int dim>
   class PTsolver
@@ -496,16 +533,16 @@ namespace Step33
     const unsigned int n_q_points    = fe_v.n_quadrature_points;
 
     Table<2,Sacado::Fad::DFad<double> >
-    W (n_q_points, EulerEquations<dim>::n_components);
+    W (n_q_points, PTsolver<dim>::n_components);
 
     Table<2,double>
-    W_old (n_q_points, EulerEquations<dim>::n_components);
+    W_old (n_q_points, PTsolver<dim>::n_components);
 
     Table<3,Sacado::Fad::DFad<double> >
-    grad_W (n_q_points, EulerEquations<dim>::n_components, dim);
+    grad_W (n_q_points, PTsolver<dim>::n_components, dim);
 
     Table<3,double>
-    grad_W_old(n_q_points, EulerEquations<dim>::n_components, dim);
+    grad_W_old(n_q_points, PTsolver<dim>::n_components, dim);
 
     std::vector<double> residual_derivatives (dofs_per_cell);
 
@@ -520,7 +557,7 @@ namespace Step33
     // initialise the values of W etc then actually calculate
 
     for (unsigned int q=0; q<n_q_points; ++q)
-      for (unsigned int c=0; c<EulerEquations<dim>::n_components; ++c)
+      for (unsigned int c=0; c<PTsolver<dim>::n_components; ++c)
         {
           W[q][c]       = 0;
           W_old[q][c]   = 0;
@@ -551,24 +588,39 @@ namespace Step33
         }
 
     // allocate and declare
-    std::vector <
-    std_cxx11::array <std_cxx11::array <Sacado::Fad::DFad<double>, dim>, EulerEquations<dim>::n_components >
-    > flux(n_q_points); // allocate flux
+    std::vector < std_cxx11::array <std_cxx11::array <Sacado::Fad::DFad<double>, dim>, PTsolver<dim>::n_components > > flux(n_q_points); // allocate flux
+    std::vector <std_cxx11::array <std_cxx11::array <double, dim>, PTsolver<dim>::n_components > > flux_old(n_q_points); // allocate flux_old
 
-    std::vector <
-    std_cxx11::array <std_cxx11::array <double, dim>, EulerEquations<dim>::n_components >
-    > flux_old(n_q_points); // allocate flux_old
+    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, PTsolver<dim>::n_components> > forcing(n_q_points);
+    std::vector < std_cxx11::array< double, PTsolver<dim>::n_components> > forcing_old(n_q_points);
 
-    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, EulerEquations<dim>::n_components> > forcing(n_q_points);
+    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, PTsolver<dim>::n_components> > time(n_q_points);
+    std::vector < std_cxx11::array< double, PTsolver<dim>::n_components> > time_old(n_q_points);
 
-    std::vector < std_cxx11::array< double, EulerEquations<dim>::n_components> > forcing_old(n_q_points);
+    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, PTsolver<dim>::n_components> > coeff(n_q_points);
+    std::vector < std_cxx11::array< double, PTsolver<dim>::n_components> > coeff_old(n_q_points);
+
+    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, PTsolver<dim>::n_components> > extraporo1(n_q_points);
+    std::vector < std_cxx11::array< double, PTsolver<dim>::n_components> > extraporo1_old(n_q_points);
+    std::vector < std_cxx11::array< Sacado::Fad::DFad<double>, PTsolver<dim>::n_components> > extraporo2(n_q_points);
+    std::vector < std_cxx11::array< double, PTsolver<dim>::n_components> > extraporo2_old(n_q_points);
 
     for (unsigned int q=0; q<n_q_points; ++q)
       {
-        EulerEquations<dim>::compute_flux_matrix (W_old[q], flux_old[q]);
-        EulerEquations<dim>::compute_forcing_vector (W_old[q], forcing_old[q]);
-        EulerEquations<dim>::compute_flux_matrix (W[q], flux[q]);
-        EulerEquations<dim>::compute_forcing_vector (W[q], forcing[q]);
+        PTsolver<dim>::compute_flux_matrix (W_old[q], flux_old[q]);
+        PTsolver<dim>::compute_forcing_vector (W_old[q], forcing_old[q]);
+        PTsolver<dim>::compute_coeff_vector (W_old[q], coeff_old[q]);
+        PTsolver<dim>::compute_extraporo1_vector (W_old[q], extraporo1_old[q]);
+        PTsolver<dim>::compute_extraporo2_vector (W_old[q], extraporo2_old[q]);
+        PTsolver<dim>::compute_time_vector (W_old[q], time_old[q]);
+
+        PTsolver<dim>::compute_flux_matrix (W[q], flux[q]);
+        PTsolver<dim>::compute_forcing_vector (W[q], forcing[q]);
+        PTsolver<dim>::compute_coeff_vector (W[q], coeff[q]);
+        PTsolver<dim>::compute_extraporo1_vector (W[q], extraporo1[q]);
+        PTsolver<dim>::compute_extraporo2_vector (W[q], extraporo2[q]);
+        PTsolver<dim>::compute_time_vector (W[q], time[q]);
+
       }
 
 
@@ -584,18 +636,32 @@ namespace Step33
 
         for (unsigned int point=0; point<fe_v.n_quadrature_points; ++point)
           {
-            if (parameters.is_stationary == false)
-            	R_i += 0.0 // time stuff
+            if (parameters.is_stationary == false)  // time stuff
+            	R_i += 1./ parameters.time_step *
+						(time[point][component_i] - time_old[point][component_id]) *
+						fe_v.shape_value_component(i, point, component_i) *
+						fe_v.JxW(point);
 
-            for (unsigned int d=0; d<dim; d++)
+            for (unsigned int d=0; d<dim; d++) // Flux components
             	R_i += ( parameters.theta * flux[point][component_i][d] +
                        (1.0-parameters.theta) * flux_old[point][component_i][d] ) *
                      fe_v.shape_grad_component(i, point,
                     		 component_i)[d] *
                      fe_v.JxW(point);
-            for (unsigned int d=0; d<dim; d++)
-            	R_i +=
 
+            for (unsigned int d=0; d<dim; d++)
+            	R_i +=  ( parameters.theta * coeff[point][component_i] * grad_W[point][component_i][d] +
+										 (1.0-parameters.theta) * coeff_old[point][component_i] * grad_W_old[point][component_i][d] ) *
+										  fe_v.shape_grad_component(i, point, component_i)[d] *
+										  fe_v.JxW(point);
+
+            for (unsigned int d=0; d<dim; d++) // got rid of if statement as extraporo[component_i] is 0 for non-porosity component ones
+                R_i += ( parameters.theta * ( extraporo1[point][component_i]*grad_W[point][component_i][d]
+																		+ extraporo2[point][component_i]*grad_W[point][PTsolver<dim>::VES_component][d] ) +
+                                   (1.0-parameters.theta) * ( extraporo1_old[point][component_i]*grad_W_old[point][component_i][d]
+																		+ extraporo2_old[point][component_i]*grad_W_old[point][PTsolver<dim>::VES_component][d] ) ) *
+                                   		fe_v.shape_value_component(i, point, component_i) *
+										fe_v.JxW(point);
 
           }
 
@@ -604,15 +670,13 @@ namespace Step33
           residual_derivatives[k] = R_i.fastAccessDx(k);
         system_matrix.add(dof_indices[i], dof_indices, residual_derivatives);
         right_hand_side(dof_indices[i]) -= R_i.val();
-      }
-
-
 
 
   }
 
-
 }
+
+
 
 
 
