@@ -511,8 +511,38 @@ namespace Step33
 
 		 Parameters::AllParameters<dim>  parameters;
 		 ConditionalOStream              verbose_cout;
+
+		 void move_mesh();
+		 void create_grid();
   };
 
+
+  template <int dim>
+  void PTsolver<dim>::create_grid()
+  {
+	  GridGenerator::hyper_cube (triangulation, 0, 1);
+	  // see step-7 for how to check if a boundary equals the boundary id
+
+	    for (typename Triangulation<dim>::active_cell_iterator
+	         cell=triangulation.begin_active();
+	         cell!=triangulation.end(); ++cell)
+	      for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
+	        if (cell->face(f)->at_boundary())
+	          {
+	            const Point<dim> face_center = cell->face(f)->center();
+
+	            if (face_center[dim] == 0)  // z coordinate of mid point of a face is 0
+	              cell->face(f)->set_boundary_id (0);
+
+	            else if (face_center[dim] == 1)
+	              cell->face(f)->set_boundary_id (1);
+
+	            else
+	              cell->face(f)->set_boundary_id (2);
+	          }
+
+	    triangulation.refine_global (3);
+  }
 
 
   template <int dim>
@@ -990,6 +1020,127 @@ namespace Step33
   }
 
 
+
+  template <int dim>
+  void PTsolver<dim>::run ()
+  {
+     // create grid. not reading in in this case.
+
+    create_grid();
+
+    dof_handler.clear();
+    dof_handler.distribute_dofs (fe);
+
+    old_solution.reinit (dof_handler.n_dofs());
+    current_solution.reinit (dof_handler.n_dofs());
+    predictor.reinit (dof_handler.n_dofs());
+    right_hand_side.reinit (dof_handler.n_dofs());
+
+    setup_system();
+
+    VectorTools::interpolate(dof_handler,
+                             parameters.initial_conditions, old_solution);
+    current_solution = old_solution;
+    predictor = old_solution;
+
+    if (parameters.do_refine == true)
+      for (unsigned int i=0; i<parameters.shock_levels; ++i)
+        {
+          Vector<double> refinement_indicators (triangulation.n_active_cells());
+
+          compute_refinement_indicators(refinement_indicators);
+          refine_grid(refinement_indicators);
+
+          setup_system();
+
+          VectorTools::interpolate(dof_handler,
+                                   parameters.initial_conditions, old_solution);
+          current_solution = old_solution;
+          predictor = old_solution;
+        }
+
+    output_results ();
+
+    Vector<double> newton_update (dof_handler.n_dofs());
+
+    double time = 0;
+    double next_output = time + parameters.output_step;
+
+    predictor = old_solution;
+    while (time < parameters.final_time)
+      {
+        std::cout << "T=" << time << std::endl
+                  << "   Number of active cells:       "
+                  << triangulation.n_active_cells()
+                  << std::endl
+                  << "   Number of degrees of freedom: "
+                  << dof_handler.n_dofs()
+                  << std::endl
+                  << std::endl;
+
+        std::cout << "   NonLin Res     Lin Iter       Lin Res" << std::endl
+                  << "   _____________________________________" << std::endl;
+
+        unsigned int nonlin_iter = 0;
+        current_solution = predictor;
+        while (true)
+          {
+            system_matrix = 0;
+
+            right_hand_side = 0;
+            assemble_system ();
+
+            const double res_norm = right_hand_side.l2_norm();
+            if (std::fabs(res_norm) < 1e-10)
+              {
+                std::printf("   %-16.3e (converged)\n\n", res_norm);
+                break;
+              }
+            else
+              {
+                newton_update = 0;
+
+                std::pair<unsigned int, double> convergence
+                  = solve (newton_update);
+
+                current_solution += newton_update;
+
+                std::printf("   %-16.3e %04d        %-5.2e\n",
+                            res_norm, convergence.first, convergence.second);
+              }
+
+            ++nonlin_iter;
+            AssertThrow (nonlin_iter <= 10,
+                         ExcMessage ("No convergence in nonlinear solver"));
+          }
+
+        time += parameters.time_step;
+
+        if (parameters.output_step < 0)
+          output_results ();
+        else if (time >= next_output)
+          {
+            output_results ();
+            next_output += parameters.output_step;
+          }
+
+        predictor = current_solution;
+        predictor.sadd (2.0, -1.0, old_solution);
+
+        old_solution = current_solution;
+
+        if (parameters.do_refine == true)
+          {
+            Vector<double> refinement_indicators (triangulation.n_active_cells());
+            compute_refinement_indicators(refinement_indicators);
+
+            refine_grid(refinement_indicators);
+            setup_system();
+
+            newton_update.reinit (dof_handler.n_dofs());
+          }
+      }
+  }
 
 
 

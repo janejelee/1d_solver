@@ -1,0 +1,10 @@
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/edit_cache.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/rebuild_cache.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/info.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/strip_comments.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/distclean.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/runclean.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/grid.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/release.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/run.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles/debug.dir
