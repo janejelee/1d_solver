@@ -113,7 +113,7 @@ CMAKE_OBJCOPY:FILEPATH=/usr/bin/objcopy
 CMAKE_OBJDUMP:FILEPATH=/usr/bin/objdump
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=grid
+CMAKE_PROJECT_NAME:STATIC=step-33grid
 
 //Path to a program.
 CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
@@ -171,10 +171,10 @@ PERL_EXECUTABLE:FILEPATH=/usr/bin/perl
 deal.II_DIR:PATH=/scratch/leej/deal.II/lib/cmake/deal.II
 
 //Value Computed by CMake
-grid_BINARY_DIR:STATIC=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid
+step-33grid_BINARY_DIR:STATIC=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid
 
 //Value Computed by CMake
-grid_SOURCE_DIR:STATIC=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid
+step-33grid_SOURCE_DIR:STATIC=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid
 
 
 ########################

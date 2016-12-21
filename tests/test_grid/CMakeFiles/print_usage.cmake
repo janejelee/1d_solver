@@ -1,7 +1,7 @@
 MESSAGE(
 "###
 #
-#  Project  grid  set up with  deal.II-8.4.1  found at
+#  Project  step-33grid  set up with  deal.II-8.4.1  found at
 #      /scratch/leej/deal.II
 #
 #  CMAKE_BUILD_TYPE:          Debug

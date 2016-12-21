@@ -53,9 +53,9 @@ CMAKE_BINARY_DIR = /scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid
 # Include the progress variables for this target.
 include CMakeFiles/run.dir/progress.make
 
-CMakeFiles/run: grid
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --blue --bold --progress-dir=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Run grid with Debug configuration"
-	./grid
+CMakeFiles/run: step-33grid
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --blue --bold --progress-dir=/scratch/leej/deal.II/my_examples/my_step-33/tests/test_grid/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Run step-33grid with Debug configuration"
+	./step-33grid
 
 run: CMakeFiles/run
 run: CMakeFiles/run.dir/build.make
