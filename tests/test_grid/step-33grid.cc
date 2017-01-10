@@ -758,9 +758,7 @@ namespace Step33
     void
     AllParameters<dim>::declare_parameters (ParameterHandler &prm)
     {
-      prm.declare_entry("mesh", "grid.inp",
-                        Patterns::Anything(),
-                        "intput file name");
+
 
       prm.declare_entry("diffusion power", "2.0",
                         Patterns::Double(),
@@ -926,6 +924,7 @@ namespace Step33
     void run ();
 
   private:
+    void create_grid ();
     void setup_system ();
 
     void assemble_system ();
@@ -941,6 +940,8 @@ namespace Step33
                              const double                     face_diameter);
 
     std::pair<unsigned int, double> solve (Vector<double> &solution);
+
+
 
     void compute_refinement_indicators (Vector<double> &indicator) const;
     void refine_grid (const Vector<double> &indicator);
@@ -969,7 +970,7 @@ namespace Step33
     Parameters::AllParameters<dim>  parameters;
     ConditionalOStream              verbose_cout;
 
-    void create_grid ();
+
   };
 
 
@@ -996,7 +997,7 @@ namespace Step33
   template <int dim>
   void ConservationLaw<dim>::create_grid()
   {
-	  GridGenerator::hyper_cube (triangulation, -1, 1);
+	  GridGenerator::hyper_cube (triangulation, 0, 1000);
 	  // see step-7 for how to check if a boundary equals the boundary id
 
 	    for (typename Triangulation<dim>::active_cell_iterator
@@ -1010,7 +1011,7 @@ namespace Step33
 	            if (face_center[dim] == 0)  // z coordinate of mid point of a face is 0
 	              cell->face(f)->set_boundary_id (0);
 
-	            else if (face_center[dim] == 1)
+	            else if (face_center[dim] == 1000)
 	              cell->face(f)->set_boundary_id (1);
 
 	            else
@@ -1765,7 +1766,7 @@ int main (int argc, char *argv[])
 
       Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, dealii::numbers::invalid_unsigned_int);
 
-      ConservationLaw<2> cons (argv[1]);
+      ConservationLaw<2> cons ("my_input.prm");
       cons.run ();
     }
   catch (std::exception &exc)
