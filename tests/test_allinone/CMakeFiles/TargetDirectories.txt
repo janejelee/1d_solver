@@ -1,0 +1,10 @@
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/edit_cache.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/rebuild_cache.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/info.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/strip_comments.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/distclean.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/runclean.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/step-33.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/release.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/run.dir
+/scratch/leej/deal.II/my_examples/my_step-33/tests/test_allinone/CMakeFiles/debug.dir
