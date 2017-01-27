@@ -13,13 +13,15 @@ set diffusion power = 2.0
 # Your .inp file should have these boundaries designated.
 
 
-subsection boundary_1  #leftboundary
+subsection boundary_1  
    set no penetration = true # reflective boundary condition
 end
 
-subsection boundary_2  # top boundary
-  #set no penetration = true
+subsection boundary_2  
   # outflow boundary
+  # set w_2=pressure
+  # set w_2 value = 1.5 - y
+
 end
 
 subsection boundary_3
@@ -28,13 +30,9 @@ subsection boundary_3
    #set w_3 value = 1.0
 end
 
-subsection boundary_4 #left
-  #set w_2 = inflow
-  #set w_2 value = 0.7
-  #set w_3 = pressure
+subsection boundary_4 
    set no penetration = true #reflective
-  #set w_2 = pressure
-	#set w_2 value = -1.0
+
 end
 
 # --------------------------------------------------
@@ -55,7 +53,7 @@ end
 subsection time stepping
   set final time = 10.0 # simulation end time
   set time step  = 0.02 # simulation time step
-  set theta scheme value = 1.0
+  set theta scheme value = 0.5
 end
 
 #-----------------------------------------
@@ -73,14 +71,14 @@ end
 # OUT STRUCTURE STUFF
 subsection output
   set step           = 0.01
-  set schlieren plot = true
+ # set schlieren plot = true
 end
 
 # --------------------------------------------------
 # REFINEMENT STUFF
 
 subsection refinement
-  set refinement = true # none only other option
+  set refinement = false # none only other option
   set shock value = 1.5
   set shock levels = 1 # how many levels of refinement to allow
 end

@@ -134,7 +134,7 @@ void gridtest<dim>::trap ()
 	Triangulation<dim> tri;
 	Triangulation<dim> rec;
 
-	Point<dim> v1 (0.0, 0.0);
+	Point<dim> v1 (0.0, -0.5);
 	Point<dim> v2 (0.0, 0.5);
 	Point<dim> v3 (-1.0, 0.5);
 	std::vector< Point<dim> > v = {v1,v2,v3};
@@ -144,7 +144,7 @@ void gridtest<dim>::trap ()
 	repetitions[0]=2;
 	repetitions[1]=2;
     GridGenerator::subdivided_hyper_rectangle (rec, repetitions,
-	                                             Point<dim>(0.0, 0.0),
+	                                             Point<dim>(0.0, -0.5),
 	                                             Point<dim>(1.0, 0.5));
 
 
@@ -160,7 +160,7 @@ void gridtest<dim>::trap ()
 	                 ++face_number)
 	              if ((std::fabs(cell->face(face_number)->center()(0) - (1.0)) < 1e-12)) // if x=1.0, RHS boundary
 	                cell->face(face_number)->set_boundary_id (2);
-	              else if ((std::fabs(cell->face(face_number)->center()(1) - (0.0)) < 1e-12)) // if y=0.0, bottom boundary
+	              else if ((std::fabs(cell->face(face_number)->center()(1) - (-0.5)) < 1e-12)) // if y=-0.5, bottom boundary
 	            	  cell->face(face_number)->set_boundary_id (3);
 	              else if ((std::fabs(cell->face(face_number)->center()(1) - (0.5)) < 1e-12)) // if y=0.5, top boundary
 	            	  cell->face(face_number)->set_boundary_id (1);
